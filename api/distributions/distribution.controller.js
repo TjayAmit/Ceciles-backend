@@ -15,10 +15,13 @@ const {
 
 module.exports = {
     generateDistribution_controller:(req,res) => {
-        generateDistribution((err,results) =>{
+        const data = req.body
+        generateDistribution(data,(err,results) =>{
             if(err){
-                console.log(err);
-                return;
+                res.json({
+                    success:-1,
+                    message:err
+                });
             }
             if(!results){
                 return res.json({
@@ -110,13 +113,15 @@ module.exports = {
     saveDistribution_controller : (req,res) => {
             saveDistribution(async(err, results) =>{
             if(err){
-                console.log(err);
-                return;
+                return res.json({
+                    success:-1,
+                    message:err
+                });
             }   
             if(!results){
                 return res.jason({
                     success: 0,
-                    message: "Something has happen"
+                    message: "Something went wrong"
                 });
             }
             return res.json({

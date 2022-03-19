@@ -544,7 +544,6 @@ module.exports = {
             } 
         )
      }, 
-
     //Save final Allocation to distribution Table
     savefinalAllocation:(callBack) => {
         pool.query(`INSERT INTO distributions (branch,product_id,product_name,suggested_allocation_quantity,distribution_quantity,percentage_quantity)	SELECT branch,product_id,product_name,suggested_allocation_quantity,0,percentage_quantity FROM sa WHERE suggested_allocation_quantity > 0`,
@@ -556,7 +555,6 @@ module.exports = {
             }
         );
     },
-
     //Empty Suggested allocation Table
     truncateAllocation:(callBack) => {
         pool.query('TRUNCATE sa',

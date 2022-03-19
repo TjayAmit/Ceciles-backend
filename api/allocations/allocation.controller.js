@@ -304,17 +304,17 @@ module.exports = {
                     message: "Something went wrong in saving allocation"
                 });
             }
+            truncateAllocation((err,results) => {
+                if(err){
+                    console.log(err)
+                    return;
+                }
+            })
             return res.json({
                 success:1,
                 data:results
             });
         });
-        truncateAllocation((err,results) => {
-            if(err){
-                console.log(err)
-                return;
-            }
-        })
     }
    
 }

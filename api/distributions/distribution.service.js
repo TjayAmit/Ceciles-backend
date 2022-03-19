@@ -3,14 +3,14 @@ const pool = require("../../config/database");
 
 module.exports = {
     /* get Distribution specific branch*/
-    generateDistribution:async(callBack) => {
+    generateDistribution:async(data,callBack) => {
         pool.query(
             `UPDATE distributions dis SET dis.distribution_quantity = 
                 (SELECT inv.quantity/pro.uom_value FROM inventories inv JOIN products pro 
                 ON pro.product_id = inv.product_id WHERE inv.product_id = dis.product_id AND 
                 inv.inventory_branch = 'MAIN WAREHOUSE1') * dis.percentage_quantity;
             `,
-            (error, results,fields) => {
+            (error, results) => {
                 if(error){
                     return callBack(error);
                 }
@@ -85,12 +85,15 @@ module.exports = {
     },
      /* add Distribution */
     saveDistribution : (callBack) => {
-        var length = 1;
+        var length = 0;
         var record = 0;
          pool.query(`SELECT * FROM distributions WHERE distribution_quantity > 0`,
              (error, results) => {
                 if(error){ 
                    return callBack(error);
+                }
+                if(results.length == 0){
+                    return callBack(error);
                 }
                 var arr = results;
                 length = results.length;
