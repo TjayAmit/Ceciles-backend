@@ -5,7 +5,7 @@ module.exports = {
     /* read all */
     read_all_variation : (callBack) => {
         pool.query(`SELECT * FROM variations`,
-             (error, results, fields) => {
+             (error, results) => {
                 if(error){ 
                    return callBack(error);
                 }
@@ -26,8 +26,11 @@ module.exports = {
     },
     /* create */
     create_variation : (data,callBack) => {
-        pool.query(`INSERT INTO variations(variation_label,variation_value) VALUES ("${data.variation_label}",${data.variation_value})`,
-             (error, results, fields) => {
+        if(data.value > 1){
+            data.value /= 100
+        }
+        pool.query(`INSERT INTO variations(variation_label,variation_value) VALUES ("${data.label}",${data.value})`,
+             (error, results) => {
                 if(error){ 
                    return callBack(error);
                 }
@@ -37,7 +40,7 @@ module.exports = {
     },
     /* update */
     update_variation : (data,id,callBack) => {
-        pool.query(`UPDATE variations SET variation_label="${data.variation_label}", variation_value = ${data.variation_value} WHERE variation_id = ${id}`,
+        pool.query(`UPDATE variations SET variation_label="${data.label}", variation_value = ${data.value} WHERE variation_id = ${id}`,
              (error, results, fields) => {
                 if(error){ 
                    return callBack(error);

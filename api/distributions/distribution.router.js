@@ -19,7 +19,6 @@ router.post('/bybranches', getDistribution_controller);
 router.post('/bydate', getDistributionAlloDate_controller);
 router.post('/', getDistributionD_controller);
 router.get('/searchDistribution', searchproduct_controller);
-router.get('/searchDistribution', searchproduct_controller);
 router.get('/listdates', listdates_controller);
 router.post('/save', saveDistribution_controller);
 router.delete('/', deleteDistribution_controller);

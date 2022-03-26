@@ -3,7 +3,8 @@ const {
     readonebranch,
     createbranch,
     updatebranch,
-    deletebranch
+    deletebranch,
+    view_inventory_controller
  } = require("./branch.controller");
 
 
@@ -14,6 +15,7 @@ router.get('/:id', readonebranch);
 router.post('/', createbranch);
 router.put('/', updatebranch);
 router.delete('/:id', deletebranch)
+router.post('/getinventory',view_inventory_controller);
 
 
 module.exports = router;

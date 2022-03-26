@@ -46,14 +46,18 @@ module.exports = {
         const data  = req.body;
         deleteStockStatus((err,results) => {
             if(err){
-                console.log(err);
-                return;
+                return res.json({
+                    success:-1,
+                    message:err,
+                });
             }
         })
         importCSVStock(data,(err,results) => {
             if(err){
-                console.log(err);
-                return;
+                return res.json({
+                    success:-1,
+                    message:err
+                });
             }
             if(!results){
                 return res.json({
@@ -115,7 +119,7 @@ module.exports = {
             if(!data){
                 return res.json({
                     success:0,
-                    data:'Somethin went wrong'
+                    data:'Something went wrong'
                 });
             }
             importCSVProcess3(data,async(err,results) => {
@@ -181,13 +185,15 @@ module.exports = {
     getAllocationSummary_controller:(req,res) => {
         getAllocationSummary((err, results) => {
             if(err){
-                console.log(err);
-                return;
+                return res.json({
+                    success:-1,
+                    message:err
+                });
             }
             if(!results){
                 return res.json({
                     success:0,
-                    message:"error",
+                    message:"Something went wrong",
                 })
             }
             return res.json({
@@ -295,8 +301,10 @@ module.exports = {
         const data = req.body
         savefinalAllocation((err,results) =>{
             if(err){
-                console.log(err)
-                return;
+                return res.json({
+                    success:-1,
+                    message:err
+                });
             }
             if(!results){
                 return res.json({

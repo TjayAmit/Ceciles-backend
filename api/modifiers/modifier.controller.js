@@ -11,12 +11,15 @@ const {
         read_all_modifier((err, results) =>{
             if(err){
                 console.log(err);
-                return;
+                return res.json({
+                    success:-1,
+                    message:err
+                });
             }   
             if(!results){
                 return res.jason({
                     success: 0,
-                    message: "error"
+                    message: "Something went wrong."
                 });
             }
             return res.json({

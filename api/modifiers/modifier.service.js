@@ -82,7 +82,7 @@ function sap(productid,ts, callback) {
 module.exports = {
     /* read all */
     read_all_modifier : (callBack) => {
-        pool.query(`SELECT m.modifier_id,(DATE_FORMAT(m.date_from, "%Y-%m-%d")) as date_from, (DATE_FORMAT(m.date_to, "%Y-%m-%d")) as date_to,m.branch,m.product,m.principal, v.variation_label,v.variation_value FROM modifiers as m JOIN variations as v on m.fk_variation_id = v.variation_id`,
+        pool.query(`SELECT m.modifier_id,(DATE_FORMAT(m.date_from, "%Y-%m-%d")) as date_from, (DATE_FORMAT(m.date_to, "%Y-%m-%d")) as date_to,m.branch,m.product,m.principal, v.variation_label,v.variation_value FROM modifiers as m JOIN variations as v on v.variation_id = m.fk_variation_id`,
              (error, results, fields) => {
               
                 if(error){ 

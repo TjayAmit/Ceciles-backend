@@ -10,13 +10,15 @@ const {
     readallvariation: (req, res) => {
         read_all_variation((err, results) =>{
             if(err){
-                console.log(err);
-                return;
+                return res.json({
+                    success:-1,
+                    message:err
+                });
             }   
             if(!results){
-                return res.jason({
+                return res.json({
                     success: 0,
-                    message: "error"
+                    message: "Something went wrong"
                 });
             }
             return res.json({
@@ -29,13 +31,15 @@ const {
         const id = req.params.id;
         read_one_variation(id,(err, results) =>{
             if(err){
-                console.log(err);
-                return;
+                return res.json({
+                    success:-1,
+                    message:err
+                });
             }   
             if(!results){
-                return res.jason({
+                return res.json({
                     success: 0,
-                    message: "error"
+                    message: "Something went wrong"
                 });
             }
             return res.json({
@@ -47,15 +51,16 @@ const {
     createvariation: (req,res) => {
         const data = req.body
         create_variation(data, (err, results) => {
-           
             if(err){
-                console.log(err);
-                return;
+                return res.json({
+                    success:-1,
+                    message:err
+                });
             }   
             if(!results){
-                return res.jason({
+                return res.json({
                     success: 0,
-                    message: "error"
+                    message: "Something went wrong"
                 });
             }
             return res.json({
@@ -70,13 +75,15 @@ const {
 
         update_variation(data,id, (err, results) => {
             if(err){
-                console.log(err);
-                return;
+                return res.json({
+                    success:-1,
+                    message:err
+                });
             }   
             if(!results){
-                return res.jason({
+                return res.json({
                     success: 0,
-                    message: "error"
+                    message: "Something went wrong"
                 });
             }
             return res.json({
@@ -89,13 +96,15 @@ const {
         const id = req.params.id;
         delete_variation(id, (err, results) => {
             if(err){
-                console.log(err);
-                return;
+                return res.json({
+                    success:-1,
+                    message:err
+                });
             }   
             if(!results){
-                return res.jason({
+                return res.json({
                     success: 0,
-                    message: "error"
+                    message: "Something went wrong"
                 });
             }
             return res.json({

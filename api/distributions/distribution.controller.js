@@ -15,8 +15,7 @@ const {
 
 module.exports = {
     generateDistribution_controller:(req,res) => {
-        const data = req.body
-        generateDistribution(data,(err,results) =>{
+        generateDistribution((err,results) =>{
             if(err){
                 res.json({
                     success:-1,
@@ -119,7 +118,7 @@ module.exports = {
                 });
             }   
             if(!results){
-                return res.jason({
+                return res.json({
                     success: 0,
                     message: "Something went wrong"
                 });
@@ -134,11 +133,13 @@ module.exports = {
         const data = req.body
         editDistribution(data, (err, results) =>{
             if(err){
-                console.log(err);
-                return;
+                return res.json({
+                    success:-1,
+                    message:err
+                });
             }   
             if(!results){
-                return res.jason({
+                return res.json({
                     success: 0,
                     message: "error"
                 });
@@ -153,11 +154,13 @@ module.exports = {
         const data = req.body
         deleteDistribution(data, (err, results) =>{
             if(err){
-                console.log(err);
-                return;
+                return res.json({
+                    success:-1,
+                    message:err
+                });
             }   
             if(!results){
-                return res.jason({
+                return res.json({
                     success: 0,
                     message: "Distribution not found"
                 });

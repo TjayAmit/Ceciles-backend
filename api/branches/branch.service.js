@@ -2,10 +2,19 @@ const pool = require("../../config/database");
 
 
 module.exports = {
+    view_inventory:(data,callBack) => {
+        pool.query(`SELECT i.inventory_id,i.inventory_branch,DATE_FORMAT(i.inventory_date, "%Y-%m-%d") as inventory_date,i.product_id,i.product_name,i.quantity FROM inventories i JOIN branches s ON s.branch_name = i.inventory_branch WHERE i.inventory_branch = "${data.branch}"`,
+        (error,results) => {
+            if(error){
+                return callBack(error);
+            }
+            return callBack(null,results);
+        });
+    },
     /* read all */
     read_all_branch : (callBack) => {
         pool.query(`SELECT * FROM branches`,
-             (error, results, fields) => {
+             (error, results) => {
                 if(error){ 
                    return callBack(error);
                 }
@@ -13,7 +22,6 @@ module.exports = {
             }
         )
     },
-    
     /* read one */
     read_one_branch : (id, callBack) => {
         pool.query(`SELECT * FROM branches WHERE branch_id = ${id}`,

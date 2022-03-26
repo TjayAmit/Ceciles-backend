@@ -3,15 +3,22 @@ const pool = require("../../config/database");
 
 module.exports = {
     /* get Distribution specific branch*/
-    generateDistribution:async(data,callBack) => {
+    generateDistribution:async(callBack) => {
+        var sum_of_sa = "(SELECT SUM(suggested_allocation_quantity) FROM distributions WHERE product_id = dis.product_id GROUP BY product_id)";
+        var sum_of_dis = "(SELECT SUM(distributed_quantity) FROM distributions WHERE product_id = dis.product_id GROUP BY product_id)";
+        var main_inventory = "(SELECT i.quantity/p.uom_value FROM inventories i JOIN products p ON p.product_id = i.product_id WHERE i.product_id = dis.product_id AND i.inventory_branch='MAIN WAREHOUSE1')";
         pool.query(
-            `UPDATE distributions dis SET dis.distribution_quantity = 
-                (SELECT inv.quantity/pro.uom_value FROM inventories inv JOIN products pro 
-                ON pro.product_id = inv.product_id WHERE inv.product_id = dis.product_id AND 
-                inv.inventory_branch = 'MAIN WAREHOUSE1') * dis.percentage_quantity;
+            `   UPDATE distributions dis SET dis.distribution_quantity = CASE 
+                WHEN ${sum_of_sa} < ${main_inventory} THEN  
+                    CASE WHEN dis.distributed_quantity = 0 THEN dis.suggested_allocation_quantity 
+                    ELSE dis.suggested_allocation_quantity - dis.distributed_quantity END
+                WHEN dis.distributed_quantity > 0 AND ${sum_of_sa} - ${sum_of_dis} < ${main_inventory} THEN 
+                    dis.suggested_allocation_quantity - dis.distributed_quantity
+                ELSE ${main_inventory} * dis.percentage_quantity END;
             `,
             (error, results) => {
                 if(error){
+                    console.log(error)
                     return callBack(error);
                 }
                 return callBack(null,results);
@@ -101,19 +108,27 @@ module.exports = {
                     pool.query(`INSERT INTO distribution_history(branch,product_id,suggested_allocation_quantity,distribution_quantity,percentage_quantity,allocation_date) SELECT d.branch,d.product_id,d.suggested_allocation_quantity,d.distribution_quantity,d.percentage_quantity,d.allocation_date FROM distributions d WHERE d.distribution_id='${arr[i].distribution_id}'`,
                     (err,reulst)=>{
                         if(err){
-                            callBack(err)
+                            return callBack(err)
                         }
                         record++;
-                        pool.query(`UPDATE distributions SET distributed_quantity = distribution_quantity`);
                         if(length == record){
-                            pool.query(`UPDATE distributions SET distribution_quantity = 0`,
-                                (err,results) => {
-                                    if(err){
-                                        callBack(err)
-                                    }
-                                    callBack(null,'Distribution Successfully Save')
+                            pool.query(`UPDATE distributions SET distributed_quantity = CASE
+                                WHEN distributed_quantity = 0 THEN distribution_quantity
+                                ELSE distributed_quantity + distribution_quantity END`,
+                            (err,results) => {
+                                if(err){
+                                    return callBack(err)
                                 }
-                            )
+                                pool.query(`UPDATE distributions SET distribution_quantity = 0`,
+                                    (err,results) => {
+                                        if(err){
+                                            return callBack(err)
+                                        }
+                                        pool.query(`DELETE FROM distributions WHERE distributed_quantity = suggested_allocation_quantity`)
+                                        callBack(null,'Distribution Successfully Save')
+                                    }
+                                )
+                            });
                         }
                     });
                 }
@@ -134,9 +149,10 @@ module.exports = {
      },
      /* delete Distribution */
      deleteDistribution : (data, callBack) => {
-        pool.query(
-            `DELETE FROM distributions WHERE distribution_id= ${data.distribution_id}`
-            ,(error, results, fields) => {
+         console.log(data.distribution_id)
+        pool.query("DELETE FROM distributions WHERE distribution_id=?",
+            [data.distribution_id]
+            ,(error, results) => {
                 if(error){ 
                    return callBack(error);
                 }

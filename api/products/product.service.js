@@ -26,9 +26,11 @@ module.exports = {
     },
     /* create */
     create_product : (data,callBack) => {
-        pool.query(`INSERT INTO products(product_name,uom,uom_value,principal_id,principal_name) VALUES ("${data.product_name}","${data.uom}",${data.uom_value},"${data.principal_id}","${data.principal_name}")`,
-             (error, results, fields) => {
+        pool.query(`INSERT INTO products(product_id,product_name,uom,uom_value,principal_id,principal_name) 
+            VALUES ("${data.productid}","${data.productname}","${data.moqlabel}","${data.moqvalue}","${data.principalid}","${data.principalname}")`,
+             (error, results) => {
                 if(error){ 
+                    console.log(error)
                    return callBack(error);
                 }
                 return callBack(null, results);

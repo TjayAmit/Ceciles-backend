@@ -3,10 +3,32 @@ const {
     read_one_branch,
     create_branch,
     update_branch,
-    delete_branch
+    delete_branch,
+    view_inventory
  } = require("./branch.service");
 
  module.exports = {
+    view_inventory_controller:(req,res) => {
+        const data = req.body;
+        view_inventory(data,(err,results) => {
+            if(err){
+                return res.json({
+                    success:-1,
+                    message:err
+                });
+            }
+            if(!results){
+                return res.json({
+                    success:0,
+                    message:"Something went wrong",
+                });
+            }
+            return res.json({
+                success:1,
+                data:results
+            });
+        });
+    },
     readallbranch: (req, res) => {
         read_all_branch((err, results) =>{
             if(err){

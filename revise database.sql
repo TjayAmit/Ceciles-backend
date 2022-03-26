@@ -151,14 +151,12 @@ CREATE TABLE sa(
     suggested_id INTEGER AUTO_INCREMENT PRIMARY KEY,
     branch VARCHAR(50) NOT NULL,
     product_id VARCHAR(50) NOT NULL,
-    product_name VARCHAR(50) NOT NULL,
-    uom VARCHAR(10) NOT NULL,
-    uom_value INTEGER NOT NULL,
     available_inventory INTEGER NOT NULL,
     sold_quantity INTEGER NOT NULL,
     suggested_allocation_quantity INTEGER NOT NULL,
     percentage_quantity FLOAT NOT NULL DEFAULT 0,
-    allocation_date DATE NOT NULL DEFAULT CURRENT_DATE()
+    allocation_date DATE NOT NULL DEFAULT CURRENT_DATE(),
+    inventory_status BIT NOT NULL DEFAULT 0,
 );
 
 CREATE TABLE distributions(
@@ -170,7 +168,7 @@ CREATE TABLE distributions(
     distributed_quantity INTEGER NOT NULL DEFAULT 0,
     distribution_quantity INTEGER NOT NULL DEFAULT 0,
     percentage_quantity FLOAT NOT NULL DEFAULT 0,
-    allocation_date DATE NOT NULL DEFAULT CURRENT_DATE()
+    allocation_date DATE NOT NULL DEFAULT CURRENT_DATE(),
 );
 
 

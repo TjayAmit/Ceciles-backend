@@ -47,15 +47,16 @@ const {
     createproduct: (req,res) => {
         const data = req.body
         create_product(data, (err, results) => {
-           
             if(err){
-                console.log(err);
-                return;
+                return res.json({
+                    success:-1,
+                    message:err
+                });
             }   
             if(!results){
-                return res.jason({
+                return res.json({
                     success: 0,
-                    message: "error"
+                    message: "Something went wrong"
                 });
             }
             return res.json({

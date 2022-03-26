@@ -7,8 +7,10 @@ module.exports = {
     /* get allocation specific branch*/
     getAllocation : (data, callBack) => {
         pool.query(
-            `SELECT * FROM sa WHERE branch = "${data.branch}" `,
-            (error, results, fields) => {
+            `SELECT s.suggested_id,s.branch,s.product_id,p.product_name,p.uom,p.uom_value,s.available_inventory,
+            s.sold_quantity,s.suggested_allocation_quantity,s.percentage_quantity FROM sa s JOIN
+            products p ON p.product_id = s.product_id WHERE s.inventory_status = 0 AND s.branch = "${data.branch}" ORDER BY s.suggested_allocation_quantity DESC`,
+            (error, results) => {
                 if(error){ 
                    return callBack(error);
                 }
@@ -19,7 +21,8 @@ module.exports = {
     //get Summary of Allocation
     getAllocationSummary:(callBack) => {
         pool.query(
-            'SELECT product_id,product_name,uom,uom_value,SUM(suggested_allocation_quantity) as total FROM sa GROUP BY product_id ASC',
+            `SELECT s.product_id,p.product_name,p.uom,p.uom_value,SUM(s.suggested_allocation_quantity) as total FROM sa s JOIN products p ON 
+                p.product_id = s.product_id GROUP BY s.product_id ASC`,
             (error, results, fieds) =>{
                 if(error){
                     return callBack(error);
@@ -44,37 +47,34 @@ module.exports = {
     /* add allocation */
     addAllocation : (data ,callBack) => {
         pool.query(
-            `INSERT INTO sa(branch, product_id, product_name, uom, uom_value, available_inventory, sold_quantity, suggested_allocation_quantity, percentage_quantity) VALUES ("${data.branch}","${data.product_id}", "${data.product_name}", "${data.uom}", ${data.uom_value}, 0, 0, ${data.suggested_allocation_quantity},0 )`,
+            `INSERT INTO sa(branch, product_id, uom, uom_value, available_inventory, sold_quantity, suggested_allocation_quantity, percentage_quantity) VALUES ("${data.branch}","${data.product_id}", "${data.product_name}", "${data.uom}", ${data.uom_value}, 0, 0, ${data.suggested_allocation_quantity},0 )`,
              (error, results, fields) => {
                     pool.query(`TRUNCATE total_suggestions`, function(err, results){
                         if (err){ 
                             throw err;
                         }
-                        pool.query(`insert into total_suggestions SELECT product_id, product_name, sum(suggested_allocation_quantity) FROM sa GROUP BY product_id`, function(err, results){
+                        pool.query(`SELECT product_id, product_name, sum(suggested_allocation_quantity) as total FROM sa GROUP BY product_id`, 
+                         (err, results) => {
                             if (err){ 
-                                throw err;
+                                return callBack(err);
                             }
-                            console.log("process 6")
-                            gettotalsugg(function(result1){
-                                datatotal = result1;
+                            var datatotal = results
+                            for(var i = 0; i < datatotal.length; i++){
+                                sap(datatotal[i].product_id,datatotal[i].total_suggested, function(result2,ts) {
+                                    datasap =  result2;
                                                                 
-                                for(var i = 0; i < datatotal.length; i++){
-                                    sap(datatotal[i].product_id,datatotal[i].total_suggested, function(result2,ts) {
-                                        datasap =  result2;
-                                                                    
-                                        for(var j = 0; j < datasap.length; j++){
-                                            if(ts === 0){
-                                                continue;
-                                            }
-                                            pool.query(`UPDATE sa SET percentage_quantity = ${datasap[j].suggested_allocation_quantity/ts} WHERE suggested_id = ${datasap[j].suggested_id}`, function(err, results){
-                                                if (err){ 
-                                                    throw err;
-                                                }
-                                            })  
+                                    for(var j = 0; j < datasap.length; j++){
+                                        if(ts === 0){
+                                            continue;
                                         }
-                                    });
-                                }
-                            });
+                                        pool.query(`UPDATE sa SET percentage_quantity = ${datasap[j].suggested_allocation_quantity/ts} WHERE suggested_id = ${datasap[j].suggested_id}`, function(err, results){
+                                            if (err){ 
+                                                throw err;
+                                            }
+                                        })  
+                                    }
+                                });
+                            }
                         }) 
                     });
             if(error){ 
@@ -116,9 +116,9 @@ module.exports = {
 
                 // Inserting data of current row
                 // into database
-                pool.query(insertStatement, items, (err, results, fields) => {
+                pool.query(insertStatement, items, (err, results) => {
                     if (err) {
-                        return callBack(`Seems there is a problem at Row ${i+1}`)
+                        return callBack(`Please check the file before importing`)
                     }
                     length++;
                     if(length == source.length){
@@ -152,14 +152,11 @@ module.exports = {
     importCSVStock:async (data, callBack) => {
        const {filename} = data;
        await csvtojson().fromFile(`./csv/${filename}`).then(source => {
-           console.log(source.length)
            var length = 0;
            if (source.length === 0){
              return res.status(500).json({ msg : "no data in the csv"});
            }
-           // Fetching the data from each row 
-           // and inserting to the table "sample"
-           
+
           for (var i = 0; i < source.length; i++) {
             var product_id = source[i]["Product ID"],
                 product_name = source[i]["Name"],
@@ -170,36 +167,12 @@ module.exports = {
               if(stock_remaining < 0 ) {
                 stock_remaining = 0;
               }
-              if( 
-                warehouse == "A-CHOOSE WAREHOUSE-A" || 
-                warehouse == "BO GROCERY 2017" || 
-                warehouse == "BO PHARMA 2017" || 
-                warehouse == "BO DEPARTMENT1" || 
-                warehouse == "In Transit Office Warehouse" || 
-                warehouse == "IN TRANSIT WAREHOUSE B.O" || 
-                warehouse == "IN TRANSIT GROCERY B.O. 2017" || 
-                warehouse == "IN TRANSIT PHARMA B.O. 2017" || 
-                warehouse == "MAIN WAREHOUSE - For B.O Dep use only" || 
-                warehouse == "MAIN WAREHOUSE 2016-FAD/BO USE ONLY" || 
-                warehouse == "MAIN WAREHOUSE 2018 - FOR BO  SECTION USE ONLY" || 
-                warehouse == "MAIN WAREHOUSE 2019 ( NOTE USE ONLY 2020 MAIN WAREHOUSE)" || 
-                warehouse == "MAIN WAREHOUSE 2017 (BO USE ONLY)" || 
-                warehouse == "OFFICE WAREHOUSE" || 
-                warehouse == "WAREHOUSE B.O." || 
-                warehouse == "MAIN WAREHOUSE FREEGOODS WH" || 
-                warehouse == "In Transit Tumaga 2019" || 
-                warehouse == "TUMAGA 2019"
-              ) {
-                length++;
-                continue;
-              }
 
-              var insertStatement = `INSERT INTO stock_status values(?,?,?,?,?)`;
-              var items = [product_id,product_name,stock_remaining,warehouse,unit];
+              var query = `INSERT INTO stock_status SELECT "${product_id}","${product_name}","${stock_remaining}","${warehouse}","${unit}" 
+                FROM branches b WHERE b.Warehouse_Name="${warehouse}" OR b.In_Transit_WH_Name="${warehouse}"`;
       
-              pool.query(insertStatement, items, (err, results, fields) => {
+              pool.query(query, (err, results) => {
                   if (err) {
-                      console.log("Unable to insert item at row ", i + 1);
                     return callBack(err)
                   } 
                 length++;
@@ -344,9 +317,10 @@ module.exports = {
         var datarecord = 0;
         var datalength = 1;
 
-        pool.query(`INSERT INTO sa (branch,product_id,product_name,uom,uom_value,available_inventory,sold_quantity,suggested_allocation_quantity) SELECT i.inventory_branch, p.product_id, p.product_name,p.uom,p.uom_value, i.quantity, po.sold_quantity,suo(i.quantity,po.sold_quantity,${inventory_goal},p.uom_value,${average_days}) sa FROM inventories i JOIN products p on i.product_id = p.product_id JOIN product_offtakes po on i.inventory_branch = po.branch AND i.product_id = po.product_id AND i.inventory_date = po.upload_date`, function(err, results){
+        pool.query(`INSERT INTO sa (branch,product_id,available_inventory,sold_quantity,suggested_allocation_quantity) SELECT i.inventory_branch, p.product_id, i.quantity, po.sold_quantity,suo(i.quantity,po.sold_quantity,${inventory_goal},p.uom_value,${average_days}) sa FROM inventories i JOIN products p on i.product_id = p.product_id JOIN product_offtakes po on i.inventory_branch = po.branch AND i.product_id = po.product_id AND i.inventory_date = po.upload_date`, 
+        (err, results)=>{
             if (err){ 
-                    throw err;
+                return callBack(err);
             }
                 pool.query("SELECT * FROM modifiers JOIN variations on modifiers.fk_variation_id = variations.variation_id"
                     ,(err,result3) => {
@@ -364,7 +338,6 @@ module.exports = {
                     var branch = datamodifiers[i].branch;
                     var modi = datamodifiers[i].variation_value;
                     
-                    console.log(datamodifiers)
                         if(date_ob >= startdate  || date_ob <= enddate ){
                             if(branch === "ALL" && product === "ALL"){
                             getsuggestedallo(modi,function(result,m){
@@ -392,8 +365,7 @@ module.exports = {
                                 var r = ((sq * m) + sq);
                                 pool.query(`UPDATE sa SET suggested_allocation_quantity=${r} WHERE suggested_id = ${data2[f].suggested_id}`, (err, results, fields) => {
                                     if (err) {
-                                        console.log(err)
-                                        // return res.status(500).json({err});
+                                        return callBack(err);
                                     }
                                     console.log("success");
                                 });
@@ -411,7 +383,7 @@ module.exports = {
                                 var r = ((sq * m) + sq);
                                 pool.query(`UPDATE sa SET suggested_allocation_quantity=${r} WHERE suggested_id = ${data3[n].suggested_id}`, (err, results, fields) => {
                                     if (err) {
-                                        return res.status(500).json({err});
+                                        return callBack(err);
                                     }
                                 console.log("success");
                                 });
@@ -427,8 +399,7 @@ module.exports = {
                                 var r = ((sq * m) + sq);
                                 pool.query(`UPDATE sa SET suggested_allocation_quantity=${r} WHERE suggested_id = ${data4[0].suggested_id}`, (err, results, fields) => {
                                     if (err) {
-                                        console.log(err)
-                                        // return res.status(500).json({err});
+                                        return callBack(err)
                                     }
                                 });
                             })
@@ -437,41 +408,33 @@ module.exports = {
                             console.log("working");
                         }
                     }
-                pool.query(`TRUNCATE total_suggestions`, function(err, results){
-                            if (err){ 
-                                console.log(err)
+                pool.query(`SELECT s.product_id, sum(s.suggested_allocation_quantity) AS total_sa,SUM(i.quantity) AS total_quantity FROM sa s
+                    JOIN inventories i ON s.product_id = i.product_id AND  i.inventory_branch = 'MAIN WAREHOUSE1' GROUP BY product_id `, 
+                    (err, results) =>{
+                        if (err){ 
+                            console.log(err)
+                        }
+                        data = results;
+                        datalength = results.length;
+                        for(var i = 0; i < data.length; i++){
+                            if(data[i].total_sa == 0){
+                                datarecord++;
+                                continue;
                             }
-                    pool.query(`insert into total_suggestions SELECT product_id, product_name, sum(suggested_allocation_quantity) FROM sa GROUP BY product_id`, function(err, results){
-                            if (err){ 
-                                console.log(err)
-                            }
-                            pool.query(`SELECT * FROM total_suggestions`,
-                            (err,result1) => {
+                            pool.query(`UPDATE sa s SET 
+                                inventory_status = CASE WHEN "${data[i].total_quantity}" > "${data[i].total_sa}" THEN 1 ELSE 0 END,
+                                percentage_quantity = s.suggested_allocation_quantity/"${data[i].total_sa}" WHERE s.product_id = "${data[i].product_id}"`,
+                                (err,results) => {
                                 if(err){
-                                    console.log(err)
+                                    return callBack(err)
                                 }
-                                datatotal = result1;
-                                datalength = result1.length;
-                                for(var i = 0; i < datatotal.length; i++){
-                                    if(datatotal[i].total_suggested == 0){
-                                        datarecord++;
-                                        continue;
-                                    }
-                                    pool.query('UPDATE sa s JOIN total_suggestions t ON s.product_id = t.product_id  SET percentage_quantity = s.suggested_allocation_quantity/t.total_suggested WHERE s.product_id = ?',
-                                        [datatotal[i].product_id]
-                                    ,(err,results) => {
-                                        if(err){
-                                            return callBack(err)
-                                        }
-                                        datarecord++;
-                                        if(datarecord == datalength){
-                                            return callBack(null,'Success in importing SA')
-                                        }
-                                    });
-                            }
-                        });         
-                    }) 
-                });
+                                datarecord++;
+                                if(datarecord == datalength){
+                                    return callBack(null,'Success in importing SA')
+                                }
+                            });
+                    }   
+                })
             }); 
         })
     },
@@ -485,7 +448,7 @@ module.exports = {
                      if(error){
                          return callBack(error)
                      }
-                     pool.query(`SELECT product_name,SUM(suggested_allocation_quantity) as total FROM sa WHERE product_id = ? GROUP BY product_id`,[data.editPID], 
+                     pool.query(`SELECT SUM(suggested_allocation_quantity) as total FROM sa WHERE product_id = ? GROUP BY product_id`,[data.editPID], 
                             function(err, result){
                                 var r = result
                                 if (err){ 
@@ -546,7 +509,9 @@ module.exports = {
      }, 
     //Save final Allocation to distribution Table
     savefinalAllocation:(callBack) => {
-        pool.query(`INSERT INTO distributions (branch,product_id,product_name,suggested_allocation_quantity,distribution_quantity,percentage_quantity)	SELECT branch,product_id,product_name,suggested_allocation_quantity,0,percentage_quantity FROM sa WHERE suggested_allocation_quantity > 0`,
+        pool.query(`INSERT INTO distributions (branch,product_id,product_name,suggested_allocation_quantity,distribution_quantity,percentage_quantity)	
+            SELECT s.branch,s.product_id,p.product_name,s.suggested_allocation_quantity,0,s.percentage_quantity FROM sa s
+            JOIN products p ON p.product_id = s.product_id WHERE s.suggested_allocation_quantity > 0`,
             function(err, results){
                 if(err){
                     return callBack(err)
