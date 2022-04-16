@@ -4,7 +4,8 @@ const {
     create_branch,
     update_branch,
     delete_branch,
-    view_inventory
+    view_inventory,
+    read_all_branch2
  } = require("./branch.service");
 
  module.exports = {
@@ -39,6 +40,26 @@ const {
                 return res.jason({
                     success: 0,
                     message: "error"
+                });
+            }
+            return res.json({
+                success: 1,
+                data: results
+            });
+        })
+    },
+    readallbranch2: (req, res) => {
+        read_all_branch2((err, results) =>{
+            if(err){
+                return res.json({
+                    success:-1,
+                    message:err
+                });
+            }   
+            if(!results){
+                return res.json({
+                    success: 0,
+                    message: "Something went wrong"
                 });
             }
             return res.json({

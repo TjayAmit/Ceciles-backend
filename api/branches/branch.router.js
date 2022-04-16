@@ -4,12 +4,14 @@ const {
     createbranch,
     updatebranch,
     deletebranch,
-    view_inventory_controller
+    view_inventory_controller,
+    readallbranch2
  } = require("./branch.controller");
 
 
 const router = require("express").Router();
 
+router.get('/alltw', readallbranch2);
 router.get('/all', readallbranch);
 router.get('/:id', readonebranch);
 router.post('/', createbranch);

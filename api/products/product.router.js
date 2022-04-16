@@ -3,17 +3,20 @@ const {
     readoneproduct,
     createproduct,
     updateproduct,
-    deleteproduct
+    deleteproduct,
+    import_masterlist_controller,
+    readmanufacturer
  } = require("./product.controller");
 
 
 const router = require("express").Router();
 
 router.get('/all', readallproduct);
-router.get('/:id', readoneproduct);
+router.get('/manufacturer',readmanufacturer);
+router.get('/getproduct/:id', readoneproduct);
 router.post('/', createproduct);
-router.put('/:id', updateproduct);
-router.delete('/:id', deleteproduct)
-
+router.put('/', updateproduct);
+router.delete('/:id', deleteproduct);
+router.post('/import',import_masterlist_controller);
 
 module.exports = router;

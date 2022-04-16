@@ -22,6 +22,17 @@ module.exports = {
             }
         )
     },
+    /* read all except main*/
+    read_all_branch2 : (callBack) => {
+        pool.query(`SELECT * FROM branches WHERE branch_id != 'MW1'`,
+             (error, results) => {
+                if(error){ 
+                   return callBack(error);
+                }
+                return callBack(null, results);
+            }
+        )
+    },
     /* read one */
     read_one_branch : (id, callBack) => {
         pool.query(`SELECT * FROM branches WHERE branch_id = ${id}`,

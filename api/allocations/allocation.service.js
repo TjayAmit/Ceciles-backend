@@ -21,8 +21,8 @@ module.exports = {
     //get Summary of Allocation
     getAllocationSummary:(callBack) => {
         pool.query(
-            `SELECT s.product_id,p.product_name,p.uom,p.uom_value,SUM(s.suggested_allocation_quantity) as total FROM sa s JOIN products p ON 
-                p.product_id = s.product_id GROUP BY s.product_id ASC`,
+            `SELECT s.product_id,p.product_name,p.uom,p.uom_value,SUM(s.suggested_allocation_quantity) as total,((SUM(s.suggested_allocation_quantity) * p.uom_value) * p.product_price) as price FROM sa s JOIN products p ON 
+                p.product_id = s.product_id AND s.inventory_status = 0 GROUP BY s.product_id ASC`,
             (error, results, fieds) =>{
                 if(error){
                     return callBack(error);
@@ -252,56 +252,6 @@ module.exports = {
                 return callback(results);
          })
     },
-    getalloproduct( product_id, modi,callback) {
-            var sql = `SELECT * FROM sa WHERE product_id = "${product_id}"`;
-            pool.query(sql, function(err, results){
-
-                if (err){ 
-                    throw err;
-                }
-                return callback(results,modi) ;
-        })
-    },
-    getallobranch( branch,modi, callback) {
-          var sql = `SELECT * FROM sa WHERE branch = "${branch}"`;
-          pool.query(sql, function(err, results){
-              
-                if (err){ 
-                  throw err;
-                }
-                return callback(results,modi) ;
-         })
-    },  
-    getbranchproduct( branch, product, modi, callback) {
-          var sql = `SELECT * FROM sa WHERE branch = "${branch}" AND product_id ="${product}"`;
-          pool.query(sql, function(err, results){
-              
-                if (err){ 
-                  throw err;
-                }
-                return callback(results,modi) ;
-         })
-    },
-    gettotalsugg(callback) {
-          var sql = `SELECT * FROM total_suggestions`;
-          pool.query(sql, function(err, results){
-            
-                if (err){ 
-                  throw err;
-                }
-                return callback(results) ;
-         })
-    },
-    getsuggestedallo(modi,callback) {
-          var sql = `SELECT * FROM sa`;
-          pool.query(sql, function(err, results){
-              
-                if (err){ 
-                  throw err;
-                }
-                return callback(results,modi);
-         })
-    },
     truncateSA:(callBack) => {
         pool.query('TRUNCATE sa',
             (err,results)=>{
@@ -329,112 +279,127 @@ module.exports = {
                     }
                     datamodifiers = result3
 
-                    var date_ob = new Date();
+                    var datarecord2 = 0;
+                    var datalength2 = 0;
 
-                    for(var i = 0; i < datamodifiers.length; i++){
-                    var startdate = new Date(datamodifiers[i].date_from);
-                    var enddate = new Date(datamodifiers[i].date_to);
-                    var product = datamodifiers[i].product;
-                    var branch = datamodifiers[i].branch;
-                    var modi = datamodifiers[i].variation_value;
+                    var date_ob = new Date();
+                    datalength2 = datamodifiers.length;
+
+                    if(datalength2 > 0){
+                        for(var i = 0; i < datamodifiers.length; i++){
+                        var startdate = new Date(datamodifiers[i].date_from);
+                        var enddate = new Date(datamodifiers[i].date_to);
+                        var product = datamodifiers[i].product;
+                        var branch = datamodifiers[i].branch;
+                        var modi = datamodifiers[i].variation_id;
+                        var manufacturer = datamodifiers[i].principal;
+                        var query = `UPDATE sa s JOIN variations v ON v.variation_id = ${modi} `;
                     
                         if(date_ob >= startdate  || date_ob <= enddate ){
-                            if(branch === "ALL" && product === "ALL"){
-                            getsuggestedallo(modi,function(result,m){
-                                data1 = result;
-                            
-                                for(var n = 0; n < data1.length; n++){
-                                var sq = data1[n].suggested_allocation_quantity;
-                                var r = ((sq * m) + sq);
-                                pool.query(`UPDATE sa SET suggested_allocation_quantity=${r} WHERE suggested_id = ${data1[n].suggested_id}`, (err, results, fields) => {
-                                    if (err) {
-                                        console.log(err)
-                                        // return res.status(500).json({err});
-                                    }
-                                });
-                                }
-                            })
-                            console.log("situation 1");
-                            } 
-                            if (branch === "ALL" && product != "ALL"){
-                            getalloproduct(product,modi, function(result,m){
-                                data2 = result;
-                                console.log("situation 2"+ data2.length);
-                                for(var f = 0; f < data2.length; f++){
-                                var sq = data2[f].suggested_allocation_quantity;
-                                var r = ((sq * m) + sq);
-                                pool.query(`UPDATE sa SET suggested_allocation_quantity=${r} WHERE suggested_id = ${data2[f].suggested_id}`, (err, results, fields) => {
-                                    if (err) {
-                                        return callBack(err);
-                                    }
-                                    console.log("success");
-                                });
-                                }
-                            })  
-                        
-                            } 
-                            if (product === "ALL" && branch != "ALL"){
-                            getallobranch(branch, modi, function(result,m){
-                                data3 = result;
-                                console.log("situation 3  " +data3.length);
-
-                                for(var n = 0; n < data3.length; n++){
-                                var sq = data3[n].suggested_allocation_quantity;
-                                var r = ((sq * m) + sq);
-                                pool.query(`UPDATE sa SET suggested_allocation_quantity=${r} WHERE suggested_id = ${data3[n].suggested_id}`, (err, results, fields) => {
-                                    if (err) {
-                                        return callBack(err);
-                                    }
-                                console.log("success");
-                                });
-                                }
-                            })
-                            
-                            } 
-                            if(product != "ALL" && branch != "ALL"){
-                            getbranchproduct(branch,product,modi,function(result,m){
-                                data4 = result;
-                                console.log("situation 4"+ data4.length);
-                                var sq = data4[0].suggested_allocation_quantity;
-                                var r = ((sq * m) + sq);
-                                pool.query(`UPDATE sa SET suggested_allocation_quantity=${r} WHERE suggested_id = ${data4[0].suggested_id}`, (err, results, fields) => {
-                                    if (err) {
-                                        return callBack(err)
-                                    }
-                                });
-                            })
-                            
+                            if(manufacturer != "ALL" || branch != "ALL" || product != "ALL" ){
+                              if(manufacturer != "ALL" && product != "ALL"){
+                                 //with manufacturer name and product id
+                                 query += ` JOIN products p ON s.product_id = p.product_id AND p.principal_id="${manufacturer}" `;
+                              }
+                              if(manufacturer == "ALL" && product != "ALL"){
+                                 //with product id
+                                 query += ` JOIN products p ON s.product_id = p.product_id `;
+                              }
+                              if(manufacturer != "ALL" && product == "ALL"){
+                                 //with manufacturer id
+                                 query += ` JOIN products p ON s.product_id = p.product_id AND  `;
+                              }
+                              if(branch != "ALL" && product != "ALL"){
+                                 //with branch id and product id
+                                 query += ` JOIN branches b ON s.branch = b.branch_name`;
+                                 query += ` SET s.suggested_allocation_quantity = s.suggested_allocation_quantity + (s.suggested_allocation_quantity * v.variation_value)`;
+                                 query += ` WHERE s.branch = "${branch}" AND s.product_id="${product}"`;
+                              }
+                              else if(branch != "ALL" && product == "ALL"){
+                                 //width branch only
+                                 query += ` JOIN branches b ON s.branch = b.branch_name`;
+                                 query += ` SET s.suggested_allocation_quantity = s.suggested_allocation_quantity + (s.suggested_allocation_quantity * v.variation_value)`;
+                                 query += ` WHERE s.branch = "${branch}"`;
+                              }
+                              else if(branch == "ALL" && product != "ALL"){
+                                 //with product id and ALL branches
+                                 query += ` SET s.suggested_allocation_quantity =  s.suggested_allocation_quantity + (s.suggested_allocation_quantity * v.variation_value)`;
+                                 query += ` WHERE s.product_id = "${product}"`;
+                              }
+                              else{
+                                 query += ` SET s.suggested_allocation_quantity =  s.suggested_allocation_quantity + (s.suggested_allocation_quantity * v.variation_value)`;
+                              }
                             }
-                            console.log("working");
+                            else{
+                               query += ` SET s.suggested_allocation_quantity = s.suggested_allocation_quantity + (s.suggested_allocation_quantity * v.variation_value)`;
+                            }
+                            pool.query(query,
+                               (error,results2) => {
+                                 if(error){
+                                   return callBack(error);
+                                 }
+                                 datarecord2++;
+                                 if(datarecord2 == datalength2){
+                                    pool.query(`SELECT s.product_id, sum(s.suggested_allocation_quantity) AS total_sa,SUM(i.quantity) AS total_quantity FROM sa s
+                                        JOIN inventories i ON s.product_id = i.product_id AND  i.inventory_branch = 'MAIN WAREHOUSE1' GROUP BY product_id `, 
+                                        (err, results) =>{
+                                            if (err){ 
+                                                console.log(err)
+                                            }
+                                            data = results;
+                                            datalength = results.length;
+                                            for(var i = 0; i < data.length; i++){
+                                                if(data[i].total_sa == 0){
+                                                    datarecord++;
+                                                    continue;
+                                                }
+                                                pool.query(`UPDATE sa s SET 
+                                                    inventory_status = CASE WHEN "${data[i].total_quantity}" > "${data[i].total_sa}" THEN 1 ELSE 0 END,
+                                                    percentage_quantity = s.suggested_allocation_quantity/"${data[i].total_sa}" WHERE s.product_id = "${data[i].product_id}"`,
+                                                    (err,results) => {
+                                                    if(err){
+                                                        return callBack(err)
+                                                    }
+                                                    datarecord++;
+                                                    if(datarecord == datalength){
+                                                        return callBack(null,'Success in importing SA')
+                                                    }
+                                                });
+                                        }   
+                                    })
+                                 }
+                            });           
                         }
+                        }
+                    }else{
+                        pool.query(`SELECT s.product_id, sum(s.suggested_allocation_quantity) AS total_sa,SUM(i.quantity) AS total_quantity FROM sa s
+                            JOIN inventories i ON s.product_id = i.product_id AND  i.inventory_branch = 'MAIN WAREHOUSE1' GROUP BY product_id `, 
+                            (err, results) =>{
+                                if (err){ 
+                                    console.log(err)
+                                }
+                                data = results;
+                                datalength = results.length;
+                                for(var i = 0; i < data.length; i++){
+                                    if(data[i].total_sa == 0){
+                                        datarecord++;
+                                        continue;
+                                    }
+                                    pool.query(`UPDATE sa s SET 
+                                        inventory_status = CASE WHEN "${data[i].total_quantity}" > "${data[i].total_sa}" THEN 1 ELSE 0 END,
+                                        percentage_quantity = s.suggested_allocation_quantity/"${data[i].total_sa}" WHERE s.product_id = "${data[i].product_id}"`,
+                                        (err,results) => {
+                                        if(err){
+                                            return callBack(err)
+                                        }
+                                        datarecord++;
+                                        if(datarecord == datalength){
+                                            return callBack(null,'Success in importing SA')
+                                        }
+                                    });
+                            }   
+                        })
                     }
-                pool.query(`SELECT s.product_id, sum(s.suggested_allocation_quantity) AS total_sa,SUM(i.quantity) AS total_quantity FROM sa s
-                    JOIN inventories i ON s.product_id = i.product_id AND  i.inventory_branch = 'MAIN WAREHOUSE1' GROUP BY product_id `, 
-                    (err, results) =>{
-                        if (err){ 
-                            console.log(err)
-                        }
-                        data = results;
-                        datalength = results.length;
-                        for(var i = 0; i < data.length; i++){
-                            if(data[i].total_sa == 0){
-                                datarecord++;
-                                continue;
-                            }
-                            pool.query(`UPDATE sa s SET 
-                                inventory_status = CASE WHEN "${data[i].total_quantity}" > "${data[i].total_sa}" THEN 1 ELSE 0 END,
-                                percentage_quantity = s.suggested_allocation_quantity/"${data[i].total_sa}" WHERE s.product_id = "${data[i].product_id}"`,
-                                (err,results) => {
-                                if(err){
-                                    return callBack(err)
-                                }
-                                datarecord++;
-                                if(datarecord == datalength){
-                                    return callBack(null,'Success in importing SA')
-                                }
-                            });
-                    }   
-                })
             }); 
         })
     },

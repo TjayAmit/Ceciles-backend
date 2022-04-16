@@ -10,7 +10,6 @@ const {
     readallmodifier: (req, res) => {
         read_all_modifier((err, results) =>{
             if(err){
-                console.log(err);
                 return res.json({
                     success:-1,
                     message:err
@@ -51,13 +50,16 @@ const {
         const data = req.body
         create_modifier(data, (err, results) => {
             if(err){
-                console.log(err);
-                return;
+                console.log(err)
+                return res.json({
+                    success:-1,
+                    message:err
+                });
             }   
             if(!results){
-                return res.jason({
+                return res.json({
                     success: 0,
-                    message: "error"
+                    message: "Something went wrong"
                 });
             }
             return res.json({
@@ -91,13 +93,15 @@ const {
         const id = req.params.id;
         delete_modifier(id, (err, results) => {
             if(err){
-                console.log(err);
-                return;
+                return res.json({
+                    success:-1,
+                    message:err
+                });
             }   
             if(!results){
-                return res.jason({
+                return res.json({
                     success: 0,
-                    message: "error"
+                    message: "Something went wrong"
                 });
             }
             return res.json({
