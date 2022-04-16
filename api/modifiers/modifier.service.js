@@ -173,6 +173,7 @@ module.exports = {
                         }
                         data = results3;
                         datalength = results3.length;
+                      if(datalength > 0){
                         for(var i = 0; i < data.length; i++){
                             if(data[i].total_sa == 0){
                                 datarecord++;
@@ -191,6 +192,9 @@ module.exports = {
                                 }
                               });
                             }   
+                          }else{
+                            return callBack(null,"Modifier added successfully");
+                          }
                         })
                     });           
                 }
