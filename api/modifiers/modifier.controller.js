@@ -70,15 +70,16 @@ const {
     }, 
     updatemodifier: (req,res) => {
         const data =  req.body;
-        const id = req.params.id;   
-
+        const id = req.params.id;
         update_modifier(data,id, (err, results) => {
             if(err){
-                console.log(err);
-                return;
+                return res.json({
+                    success:-1,
+                    message:err
+                });
             }   
             if(!results){
-                return res.jason({
+                return res.json({
                     success: 0,
                     message: "error"
                 });

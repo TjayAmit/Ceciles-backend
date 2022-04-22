@@ -19,6 +19,7 @@ const {
     getsettings,
     truncateSA,
     importCSVProcess3,
+    getAllocationSummaryWzero,
  } = require("./allocation.service");
 
 
@@ -27,20 +28,30 @@ module.exports = {
         const data  = req.body;
         deleteProductOfftakes((err,results) => {
             if(err){
-                console.log(err);
-                return;
+                return res.json({
+                    success:-1,
+                    message:'Something went wrongs'
+                });
             }
-        })
-        importCSVSales(data,(err,results) => {
-            if(err){
-                console.log(err);
-                return;
-            }
-            return res.json({
-                success:1,
-                data:results
+            importCSVSales(data,(err,results) => {
+                if(err){
+                    return res.json({
+                        success:-1,
+                        message:err
+                    });
+                }
+                if(!results){
+                    return res.json({
+                        success:0,
+                        message:results
+                    })
+                }
+                return res.json({
+                    success:1,
+                    data:results
+                });
             });
-        });
+        })
     },
     importCSVStock_controller: async (req, res) => {
         const data  = req.body;
@@ -75,23 +86,32 @@ module.exports = {
         var data;
         deleteInventory((err,results) => {
             if(err){
-                console.log(err);
-                return;
+                res.json({
+                    success:0,
+                    message:'Something went wrong',
+                });
             }
         });
         fetchBranches((err,results) => {
             if(err){
-                console.log(err)
-                return;
+                return res.json({
+                    success:-1,
+                    message:"Something went wrong0"
+                });
             }
             if(!results){
-                return "Something went wrong"
+                return res.json({
+                    success:0,
+                    message:"Something went wrong"
+                });
             }
             data = results
             importCSVProcess2(data,(err,results) => {
                 if(err){
-                    console.log(err);
-                    return;
+                    return res.json({
+                        success:-1,
+                        message:err
+                    });
                 }
                 return res.json({
                     success:1,
@@ -202,6 +222,26 @@ module.exports = {
             });
         })
     },
+    getAllocationSummaryWzero_controller:(req,res) => {
+        getAllocationSummaryWzero((err, results) => {
+            if(err){
+                return res.json({
+                    success:-1,
+                    message:err
+                });
+            }
+            if(!results){
+                return res.json({
+                    success:0,
+                    message:"Something went wrong",
+                })
+            }
+            return res.json({
+                success:1,
+                data:results
+            });
+        })
+    },
     getAllocation_controller: (req, res) => {
         const data = req.body
         getAllocation(data, (err, results) =>{
@@ -260,14 +300,16 @@ module.exports = {
         })
     },
     deleteAllocation_controller: (req, res) => {
-        const data = req.body
-        deleteAllocation(data, (err, results) =>{
+        const id = req.params.id;
+        deleteAllocation(id, (err, results) =>{
             if(err){
-                console.log(err);
-                return;
+                return res.json({
+                    success:-1,
+                    message:err
+                });
             }   
             if(!results){
-                return res.jason({
+                return res.json({
                     success: 0,
                     message: "allocation not found"
                 });

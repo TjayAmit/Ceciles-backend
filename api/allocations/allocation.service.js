@@ -8,8 +8,8 @@ module.exports = {
     getAllocation : (data, callBack) => {
         pool.query(
             `SELECT s.suggested_id,s.branch,s.product_id,p.product_name,p.uom,p.uom_value,s.available_inventory,
-            s.sold_quantity,s.suggested_allocation_quantity,s.percentage_quantity FROM sa s JOIN
-            products p ON p.product_id = s.product_id WHERE s.inventory_status = 0 AND s.branch = "${data.branch}" ORDER BY s.suggested_allocation_quantity DESC`,
+            s.sold_quantity,s.suggested_allocation_quantity,s.updated_allocation_quantity,s.percentage_quantity FROM suggested_order s JOIN
+            products p ON p.product_id = s.product_id WHERE s.branch = "${data.branch}" ORDER BY s.suggested_allocation_quantity DESC`,
             (error, results) => {
                 if(error){ 
                    return callBack(error);
@@ -21,8 +21,23 @@ module.exports = {
     //get Summary of Allocation
     getAllocationSummary:(callBack) => {
         pool.query(
-            `SELECT s.product_id,p.product_name,p.uom,p.uom_value,SUM(s.suggested_allocation_quantity) as total,((SUM(s.suggested_allocation_quantity) * p.uom_value) * p.product_price) as price FROM sa s JOIN products p ON 
-                p.product_id = s.product_id AND s.inventory_status = 0 GROUP BY s.product_id ASC`,
+            `SELECT s.product_id,p.product_name,p.uom,p.uom_value,SUM((CASE WHEN updated_allocation_quantity = 0 THEN suggested_allocation_quantity ELSE updated_allocation_quantity END)) as total,
+                ((SUM((CASE WHEN updated_allocation_quantity = 0 THEN suggested_allocation_quantity ELSE updated_allocation_quantity END)) * p.uom_value) * p.product_price) as price FROM suggested_order s JOIN products p ON 
+                p.product_id = s.product_id  GROUP BY s.product_id ASC`,
+            (error, results, fieds) =>{
+                if(error){
+                    return callBack(error);
+                }
+                return callBack(null,results);
+            }
+        )
+    },
+    //get Summary of Allocation
+    getAllocationSummaryWzero:(callBack) => {
+        pool.query(
+            `SELECT s.product_id,p.product_name,p.uom,p.uom_value,SUM((CASE WHEN updated_allocation_quantity = 0 THEN suggested_allocation_quantity ELSE updated_allocation_quantity END)) as total,
+                ((SUM((CASE WHEN updated_allocation_quantity = 0 THEN suggested_allocation_quantity ELSE updated_allocation_quantity END)) * p.uom_value) * p.product_price) as price FROM suggested_order s JOIN products p ON 
+                p.product_id = s.product_id  GROUP BY s.product_id ASC HAVING SUM((CASE WHEN updated_allocation_quantity = 0 THEN suggested_allocation_quantity ELSE updated_allocation_quantity END)) > 0`,
             (error, results, fieds) =>{
                 if(error){
                     return callBack(error);
@@ -34,7 +49,7 @@ module.exports = {
      /* get all allocations */
     getAllAllocations : (callBack) => {
          pool.query(
-            `SELECT * FROM sa`,
+            `SELECT * FROM suggested_order`,
              (error, results, fields) => {  
                 if(error){ 
                    return callBack(error);
@@ -47,13 +62,13 @@ module.exports = {
     /* add allocation */
     addAllocation : (data ,callBack) => {
         pool.query(
-            `INSERT INTO sa(branch, product_id, uom, uom_value, available_inventory, sold_quantity, suggested_allocation_quantity, percentage_quantity) VALUES ("${data.branch}","${data.product_id}", "${data.product_name}", "${data.uom}", ${data.uom_value}, 0, 0, ${data.suggested_allocation_quantity},0 )`,
+            `INSERT INTO suggested_order(branch, product_id, uom, uom_value, available_inventory, sold_quantity, suggested_allocation_quantity, percentage_quantity) VALUES ("${data.branch}","${data.product_id}", "${data.product_name}", "${data.uom}", ${data.uom_value}, 0, 0, ${data.suggested_allocation_quantity},0 )`,
              (error, results, fields) => {
                     pool.query(`TRUNCATE total_suggestions`, function(err, results){
                         if (err){ 
                             throw err;
                         }
-                        pool.query(`SELECT product_id, product_name, sum(suggested_allocation_quantity) as total FROM sa GROUP BY product_id`, 
+                        pool.query(`SELECT product_id, product_name, sum(suggested_allocation_quantity) as total FROM suggested_order GROUP BY product_id`, 
                          (err, results) => {
                             if (err){ 
                                 return callBack(err);
@@ -67,7 +82,7 @@ module.exports = {
                                         if(ts === 0){
                                             continue;
                                         }
-                                        pool.query(`UPDATE sa SET percentage_quantity = ${datasap[j].suggested_allocation_quantity/ts} WHERE suggested_id = ${datasap[j].suggested_id}`, function(err, results){
+                                        pool.query(`UPDATE suggested_order SET percentage_quantity = ${datasap[j].suggested_allocation_quantity/ts} WHERE suggested_id = ${datasap[j].suggested_id}`, function(err, results){
                                             if (err){ 
                                                 throw err;
                                             }
@@ -90,47 +105,62 @@ module.exports = {
             if (err) {
                 return callBack(err)
             }
-            return callBack(results);
+            return callBack(null,results);
         }); 
      },
      importCSVSales:async (data, callBack) => {
-        const {filename,solddate} = data;
-        await csvtojson().fromFile(`./csv/${filename}`).then(source => {
-            console.log(source.length)
-            var length = 0;
-            if (source.length === 0){
-              return res.status(500).json({ msg : "no data in the csv"});
-            }
-            // Fetching the data from each row 
-            // and inserting to the table "sample"
-            for (var i = 0; i < source.length; i++) {
-                var branch = source[i]["Branch"],
-                    product_id = source[i]["Product ID"],
-                    principal_id = source[i]["Principal ID"],
-                    product_name = source[i]["Product"],
-                    sold_quantity = source[i]["Qty"]
+        const {filename,months} = data;
+        const mynames = filename.split(' ');
+        const dates = mynames[2].split('-');
+        const year = dates[2].split('.');
+        let y = 2000 + parseInt(year[0]);
+        let salereportdate = new Date(y,dates[0],dates[1]);
+        if(filename.includes("Sales") || filename.includes("sales")){
+            await csvtojson().fromFile(`./csv/${filename}`).then(source => {
+                console.log(source.length)
+                var length = 0;
+                if (source.length === 0){
+                  return callBack(null,"File is empty");
+                }
+    
+                for (var i = 0; i < source.length; i++) {
+                    var branch = source[i]["Branch"],
+                        product_id = source[i]["Product ID"],
+                        principal_id = source[i]["Principal ID"],
+                        product_name = source[i]["Product"],
+                        sold_quantity = source[i]["Qty"]
+                        
+                    var insertStatement = `INSERT INTO product_offtakes(branch,product_id,principal_id,	product_name,sold_quantity,sold_date) values(?,?,?,?,?,?)`;
+                    var items = [branch,product_id,principal_id,product_name,sold_quantity,salereportdate];
                     
-                var insertStatement = `INSERT INTO product_offtakes(branch,product_id,principal_id,	product_name,sold_quantity,sold_date) values(?,?,?,?,?,?)`;
-                var items = [branch,product_id,principal_id,product_name,sold_quantity,solddate];
-                
-
-                // Inserting data of current row
-                // into database
-                pool.query(insertStatement, items, (err, results) => {
-                    if (err) {
-                        return callBack(`Please check the file before importing`)
-                    }
-                    length++;
-                    if(length == source.length){
-                        return callBack(null,'Sales Report Imported Successfully')
-                    }
-                });
-            }
-            
-        })
-        .catch(function (error) {
-          console.log(error);
-        });
+    
+                    // Inserting data of current row
+                    // into database
+                    pool.query(insertStatement, items, (err, results) => {
+                        if (err) {
+                            return callBack(`Please check the file before importing`)
+                        }
+                        length++;
+                        if(length == source.length){
+                            pool.query(`SELECT * FROM pomodifier WHERE purchase_order_date = CURRENT_DATE()`,(errx,resultsx) => {
+                                if(errx){
+                                    return callBack(errx)
+                                }
+                                if(resultsx.length > 0){
+                                    pool.query(`UPDATE pomodifier SET average_days = (${months}) WHERE pomodifier_id = ${resultsx[0]["pomodifier_id"]}`);
+                                }else{
+                                    pool.query(`INSERT INTO pomodifier(average_days) VALUES (${months})`);
+                                }
+                            })
+                            
+                            return callBack(null,'Sales Report Imported Successfully')
+                        }
+                    });
+                }
+            });
+        }else{
+            return callBack("File is not a sales Report");
+        }
     },
     getBranches:(callBack) => {
         pool.query(`SELECT * FROM branches`,(err, results) => {
@@ -150,41 +180,59 @@ module.exports = {
        }); 
     },
     importCSVStock:async (data, callBack) => {
-       const {filename} = data;
-       await csvtojson().fromFile(`./csv/${filename}`).then(source => {
-           var length = 0;
-           if (source.length === 0){
-             return res.status(500).json({ msg : "no data in the csv"});
-           }
-
-          for (var i = 0; i < source.length; i++) {
-            var product_id = source[i]["Product ID"],
-                product_name = source[i]["Name"],
-                warehouse = source[i]["Warehouse"],
-                stock_remaining = source[i]["Remaining"]
-                unit = source[i]["Unit"]
-
-              if(stock_remaining < 0 ) {
-                stock_remaining = 0;
-              }
-
-              var query = `INSERT INTO stock_status SELECT "${product_id}","${product_name}","${stock_remaining}","${warehouse}","${unit}" 
-                FROM branches b WHERE b.Warehouse_Name="${warehouse}" OR b.In_Transit_WH_Name="${warehouse}"`;
-      
-              pool.query(query, (err, results) => {
-                  if (err) {
-                    return callBack(err)
-                  } 
-                length++;
-                if(length == source.length){
-                    return callBack(null,'Stock Status Imported Successfully')
+       const {filename,months,isupdate_inventory} = data;
+       if(filename.includes("Stock") || filename.includes("stock")){
+            await csvtojson().fromFile(`./csv/${filename}`).then(source => {
+                var length = 0;
+                if (source.length === 0){
+                return res.status(500).json({ msg : "no data in the csv"});
                 }
-              })
-          }
-       })
-       .catch(function (error) {
-         console.log(error);
-       });
+    
+                for (var i = 0; i < source.length; i++) {
+                    var product_id = source[i]["Product ID"],
+                        product_name = source[i]["Name"],
+                        warehouse = source[i]["Warehouse"],
+                        stock_remaining = source[i]["Remaining"]
+                        unit = source[i]["Unit"]
+        
+                    if(stock_remaining < 0 ) {
+                        stock_remaining = 0;
+                    }
+        
+                    var query = `INSERT INTO stock_status SELECT "${product_id}","${product_name}","${stock_remaining}","${warehouse}","${unit}" 
+                        FROM branches b WHERE b.Warehouse_Name="${warehouse}" OR b.In_Transit_WH_Name="${warehouse}"`;
+            
+                    pool.query(query, (err, results) => {
+                        if (err) {
+                            console.log(err)
+                            return callBack(err)
+                        } 
+                        length++;
+                        if(length == source.length){
+                            if(isupdate_inventory == true){
+                                pool.query(`SELECT * FROM pomodifier WHERE purchase_order_date = CURRENT_DATE()`,(errx,resultsx) => {
+                                    if(errx){
+                                        console.log(errx)
+                                        return callBack(errx)
+                                    }
+                                    if(resultsx.length > 0){
+                                        pool.query(`UPDATE pomodifier SET inventory_goal = (${months}) WHERE pomodifier_id = ${resultsx[0]["pomodifier_id"]}`);
+                                    }else{
+                                        pool.query(`INSERT INTO pomodifier(inventory_goal) VALUES (${months})`);
+                                    }
+                                })
+                            }
+                            return callBack(null,'Stock Status Imported Successfully')
+                        }
+                    })
+                }
+            })
+            .catch(function (error) {
+            console.log(error);
+            });
+       }else{
+           return callBack("File is not stock status");
+       }
     },
     deleteInventory:(callBack) => {
         pool.query(`DELETE FROM inventories`, (err, results) => {
@@ -221,7 +269,7 @@ module.exports = {
                 SELECT "${data[i].branch_name}", product_id, product_name , SUM(stock_remaining) 
                 FROM stock_status WHERE warehouse IN ("${data[i].In_Transit_WH_Name}" ,"${data[i].Warehouse_Name}") 
                 AND product_name IN (SELECT DISTINCT product_name FROM stock_status) GROUP by product_name`,
-            (error,results,fields) => { 
+            (error,results) => { 
                 if(error){
                     console.log(error)
                     return;
@@ -235,10 +283,10 @@ module.exports = {
     },
     // END OF PROCESS 2 
     getsettings:(callback) => {
-        var sql = `SELECT * FROM settings`;
+        var sql = `SELECT * FROM pomodifier WHERE purchase_order_date=CURRENT_DATE()`;
         pool.query(sql, function(err, results){
                 if (err){ 
-                throw err;
+                    return callback(err);
                 }
                 return callback(null,results);
         })
@@ -253,7 +301,7 @@ module.exports = {
          })
     },
     truncateSA:(callBack) => {
-        pool.query('TRUNCATE sa',
+        pool.query('TRUNCATE suggested_order',
             (err,results)=>{
                 if(err){
                     callBack(err)
@@ -267,11 +315,15 @@ module.exports = {
         var datarecord = 0;
         var datalength = 1;
 
-        pool.query(`INSERT INTO sa (branch,product_id,available_inventory,sold_quantity,suggested_allocation_quantity) SELECT i.inventory_branch, p.product_id, i.quantity, po.sold_quantity,suo(i.quantity,po.sold_quantity,${inventory_goal},p.uom_value,${average_days}) sa FROM inventories i JOIN products p on i.product_id = p.product_id JOIN product_offtakes po on i.inventory_branch = po.branch AND i.product_id = po.product_id AND i.inventory_date = po.upload_date`, 
-        (err, results)=>{
-            if (err){ 
-                return callBack(err);
-            }
+        pool.query(`INSERT INTO suggested_order (branch,product_id,available_inventory,sold_quantity,suggested_allocation_quantity) 
+            SELECT i.inventory_branch, p.product_id, i.quantity, po.sold_quantity,
+            suo(i.quantity,po.sold_quantity,${inventory_goal},p.uom_value,${average_days}) suggested_order FROM inventories i JOIN 
+            products p on i.product_id = p.product_id JOIN product_offtakes po on i.inventory_branch = po.branch AND 
+            i.product_id = po.product_id AND i.inventory_date = po.upload_date`, 
+            (err, results)=>{
+                if (err){ 
+                    return callBack(err);
+                }
                 pool.query("SELECT * FROM modifiers JOIN variations on modifiers.fk_variation_id = variations.variation_id"
                     ,(err,result3) => {
                     if(err){
@@ -293,7 +345,7 @@ module.exports = {
                         var branch = datamodifiers[i].branch;
                         var modi = datamodifiers[i].variation_id;
                         var manufacturer = datamodifiers[i].principal;
-                        var query = `UPDATE sa s JOIN variations v ON v.variation_id = ${modi} `;
+                        var query = `UPDATE suggested_order s JOIN variations v ON v.variation_id = ${modi} `;
                     
                         if(date_ob >= startdate  || date_ob <= enddate ){
                             if(manufacturer != "ALL" || branch != "ALL" || product != "ALL" ){
@@ -340,40 +392,37 @@ module.exports = {
                                  }
                                  datarecord2++;
                                  if(datarecord2 == datalength2){
-                                    pool.query(`SELECT s.product_id, sum(s.suggested_allocation_quantity) AS total_sa,SUM(i.quantity) AS total_quantity FROM sa s
-                                        JOIN inventories i ON s.product_id = i.product_id AND  i.inventory_branch = 'MAIN WAREHOUSE1' GROUP BY product_id `, 
-                                        (err, results) =>{
-                                            if (err){ 
-                                                console.log(err)
-                                            }
-                                            data = results;
-                                            datalength = results.length;
-                                            for(var i = 0; i < data.length; i++){
-                                                if(data[i].total_sa == 0){
-                                                    datarecord++;
-                                                    continue;
-                                                }
-                                                pool.query(`UPDATE sa s SET 
-                                                    inventory_status = CASE WHEN "${data[i].total_quantity}" > "${data[i].total_sa}" THEN 1 ELSE 0 END,
-                                                    percentage_quantity = s.suggested_allocation_quantity/"${data[i].total_sa}" WHERE s.product_id = "${data[i].product_id}"`,
-                                                    (err,results) => {
-                                                    if(err){
-                                                        return callBack(err)
-                                                    }
-                                                    datarecord++;
-                                                    if(datarecord == datalength){
-                                                        return callBack(null,'Success in importing SA')
-                                                    }
-                                                });
-                                        }   
-                                    })
-                                 }
+                                     pool.query(`SELECT product_id, sum(suggested_allocation_quantity) AS total_sa FROM suggested_order s GROUP BY product_id `, 
+                                         (err, results) =>{
+                                             if (err){ 
+                                                 console.log(err)
+                                             }
+                                             data = results;
+                                             datalength = results.length;
+                                             for(var i = 0; i < data.length; i++){
+                                                 if(data[i].total_sa == 0){
+                                                     datarecord++;
+                                                     continue;
+                                                 }
+                                                 pool.query(`UPDATE suggested_order s SET percentage_quantity = s.suggested_allocation_quantity/"${data[i].total_sa}" WHERE s.product_id = "${data[i].product_id}"`,
+                                                     (err,results) => {
+                                                     if(err){
+                                                         return callBack(err)
+                                                     }
+                                                     datarecord++;
+                                                     if(datarecord == datalength){
+                                                         return callBack(null,'Success in importing SA')
+                                                     }
+                                                 });
+                                         }   
+                                     })
+                                  }
                             });           
+                            
                         }
                         }
                     }else{
-                        pool.query(`SELECT s.product_id, sum(s.suggested_allocation_quantity) AS total_sa,SUM(i.quantity) AS total_quantity FROM sa s
-                            JOIN inventories i ON s.product_id = i.product_id AND  i.inventory_branch = 'MAIN WAREHOUSE1' GROUP BY product_id `, 
+                        pool.query(`SELECT product_id, sum(suggested_allocation_quantity) AS total_sa FROM suggested_order JOIN  GROUP BY product_id `, 
                             (err, results) =>{
                                 if (err){ 
                                     console.log(err)
@@ -385,9 +434,7 @@ module.exports = {
                                         datarecord++;
                                         continue;
                                     }
-                                    pool.query(`UPDATE sa s SET 
-                                        inventory_status = CASE WHEN "${data[i].total_quantity}" > "${data[i].total_sa}" THEN 1 ELSE 0 END,
-                                        percentage_quantity = s.suggested_allocation_quantity/"${data[i].total_sa}" WHERE s.product_id = "${data[i].product_id}"`,
+                                    pool.query(`UPDATE suggested_order s SET percentage_quantity = s.suggested_allocation_quantity/"${data[i].total_sa}" WHERE s.product_id = "${data[i].product_id}"`,
                                         (err,results) => {
                                         if(err){
                                             return callBack(err)
@@ -405,65 +452,102 @@ module.exports = {
     },
      /* edit allocation */
      editAllocation : (data , callBack) => {
-         var length = 1;
+         var length = 0;
          var record = 0;
          pool.query(
-             `UPDATE sa set suggested_allocation_quantity= ${data.editSA} WHERE suggested_id = ${data.editSugID}`
+             `UPDATE suggested_order set updated_allocation_quantity= ${data.updated_so} WHERE suggested_id = ${data.suggested_id}`
              ,(error, results) => {
                      if(error){
                          return callBack(error)
                      }
-                     pool.query(`SELECT SUM(suggested_allocation_quantity) as total FROM sa WHERE product_id = ? GROUP BY product_id`,[data.editPID], 
-                            function(err, result){
-                                var r = result
-                                if (err){ 
-                                    throw err
-                                }
-                                pool.query('SELECT suggested_id,suggested_allocation_quantity FROM sa WHERE product_id = ?',[
-                                    data.editPID
-                                ],
-                                function(err, results2){
-                                    length = results2.length;
-                                    if(err){
-                                        return callBack(err);
+                     pool.query(`SELECT suggested_id,suggested_allocation_quantity,updated_allocation_quantity,percentage_quantity FROM suggested_order  WHERE product_id = "${data.product_id}"`,
+                        (err,listofproducts)=>{
+                        if(err){
+                            return callBack(err);
+                        }
+                        let total = 0;
+                        console.log(listofproducts[0]['updated_allocation_quantity']);
+                        for(var i = 0;i<listofproducts.length ; i++){
+                            if(listofproducts[i]["updated_allocation_quantity"] > 0){
+                                total += listofproducts[i]["updated_allocation_quantity"];
+                            }else{
+                                total += listofproducts[i]["suggested_allocation_quantity"];
+                            }
+                        }
+                        
+                        for(var x = 0; x< listofproducts.length; x++){
+                            if(listofproducts[x]["updated_allocation_quantity"] > 0){
+                                listofproducts[x]["percentage_quantity"] = listofproducts[x]["updated_allocation_quantity"] / total;
+                            }else{
+                                listofproducts[x]["percentage_quantity"] = listofproducts[x]["suggested_allocation_quantity"] / total;
+                            }
+                            pool.query(`UPDATE suggested_order SET percentage_quantity = ${listofproducts[x]["percentage_quantity"]} WHERE suggested_id = "${listofproducts[x]["suggested_id"]}"`,
+                                (errup, resultsup) => {
+                                    if(errup){
+                                        return callBack(errup);
                                     }
-                                    for(var i = 0; i< results2.length; i++){
-                                        pool.query(`UPDATE sa SET percentage_quantity=suggested_allocation_quantity/? WHERE suggested_id = ?`
-                                        ,[r[0].total,results2[i].suggested_id],
-                                            (err,results) => {
-                                                if(err){
-                                                    return callBack(err)
-                                                }   
-                                                record++;
-                                                if(record == length){
-                                                    return callBack(null,'Updating Success')
-                                                }
-                                            }
-                                        )
-                                    }
-                                });
                             });
+                        }
+                        
+                        return callBack(null,"Successfully updated");
+                     });
             }
          )
      },
-
     /* delete allocation */
-    deleteAllocation : (data, callBack) => {
-        pool.query(
-            `DELETE FROM sa WHERE suggested_id= ${data.suggested_id}`
-            ,(error, results, fields) => {
-                if(error){ 
-                   return callBack(error);
-                }
-                return callBack(null, results);
-            } 
-        )
+    deleteAllocation : (id, callBack) => {
+        pool.query(`SELECT DISTINCT product_id  FROM suggested_order WHERE suggested_id = "${id}"`,(err1,results1) => {
+            if(err1){
+                return callBack(err1)
+            }
+            
+            pool.query(
+                `DELETE FROM suggested_order WHERE suggested_id= ${id}`
+                ,(error, results) => {
+                    if(error){ 
+                        console.log(error)
+                        return callBack(error);
+                    }
+                    pool.query(`SELECT suggested_id,suggested_allocation_quantity,updated_allocation_quantity,percentage_quantity FROM suggested_order  WHERE product_id = "${results1[0].product_id}"`,
+                        (err,listofproducts)=>{
+                        if(err){
+                            console.log(err)
+                            return callBack(err);
+                        }
+                        let total = 0;
+                        for(var i = 0;i<listofproducts.length ; i++){
+                            if(listofproducts[i]["updated_allocation_quantity"] > 0){
+                                total += listofproducts[i]["updated_allocation_quantity"];
+                            }else{
+                                total += listofproducts[i]["suggested_allocation_quantity"];
+                            }
+                        }
+                        
+                        for(var x = 0; x< listofproducts.length; x++){
+                            if(listofproducts[x]["updated_allocation_quantity"] > 0){
+                                listofproducts[x]["percentage_quantity"] = listofproducts[x]["updated_allocation_quantity"] / total;
+                            }else{
+                                listofproducts[x]["percentage_quantity"] = listofproducts[x]["suggested_allocation_quantity"] / total;
+                            }
+                            pool.query(`UPDATE suggested_order SET percentage_quantity = ${listofproducts[x]["percentage_quantity"]} WHERE suggested_id = "${listofproducts[x]["suggested_id"]}"`,
+                                (errup, resultsup) => {
+                                    if(errup){
+                                        console.log(errup)
+                                        return callBack(errup);
+                                    }
+                            });
+                        }
+                    });
+                    return callBack(null, results);
+                } 
+            )
+        });
     },
 
     /*Search By Product id or product name*/
     searchproduct : (data, callBack) => {
         pool.query(
-            `SELECT * FROM sa WHERE product_id LIKE "%${data.product_id}%" or product_name LIKE "%${data.product_name}%"`
+            `SELECT * FROM suggested_order WHERE product_id LIKE "%${data.product_id}%" or product_name LIKE "%${data.product_name}%"`
             ,(error, results, fields) => {
                 if(error){ 
                    return callBack(error);
@@ -475,10 +559,11 @@ module.exports = {
     //Save final Allocation to distribution Table
     savefinalAllocation:(callBack) => {
         pool.query(`INSERT INTO distributions (branch,product_id,product_name,suggested_allocation_quantity,distribution_quantity,percentage_quantity)	
-            SELECT s.branch,s.product_id,p.product_name,s.suggested_allocation_quantity,0,s.percentage_quantity FROM sa s
-            JOIN products p ON p.product_id = s.product_id WHERE s.suggested_allocation_quantity > 0`,
+            SELECT s.branch,s.product_id,p.product_name,(CASE WHEN s.updated_allocation_quantity = 0 THEN s.suggested_allocation_quantity ELSE s.updated_allocation_quantity END) as PO_qty,0,s.percentage_quantity FROM suggested_order s
+            JOIN products p ON p.product_id = s.product_id WHERE s.suggested_allocation_quantity > 0 || s.updated_allocation_quantity > 0`,
             function(err, results){
                 if(err){
+                    console.log(err)
                     return callBack(err)
                 }
                 return callBack(null,results);
@@ -487,7 +572,7 @@ module.exports = {
     },
     //Empty Suggested allocation Table
     truncateAllocation:(callBack) => {
-        pool.query('TRUNCATE sa',
+        pool.query('TRUNCATE suggested_order',
             function(err,results){
                 if(err){
                     return callBack(err)

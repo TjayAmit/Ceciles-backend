@@ -65,23 +65,17 @@ CREATE TABLE products(
     principal_name VARCHAR(150) NOT NULL  
 );
 
-CREATE TABLE settings (
-    settings_id INTEGER PRIMARY KEY, 
-    inventory_goal INTEGER NOT NULL, 
-    average_days INTEGER NOT NULL 
+CREATE TABLE pomodifier (
+    pomodifier_id INTEGER AUTO_INCREMENT PRIMARY KEY, 
+    inventory_goal INTEGER NOT NULL DEFAULT 0, 
+    average_days INTEGER NOT NULL DEFAULT 0,
+    purchase_order_date DATE NOT NULL DEFAULT CURRENT_DATE()
 );
 
 CREATE TABLE total_suggestions (
     product_id VARCHAR(150) NOT NULL PRIMARY KEY,
     product_name VARCHAR(150) NOT NULL,
     total_suggested INTEGER NOT NULL 
-);
-
-CREATE TABLE wi (
-    wi_id INTEGER AUTO_INCREMENT PRIMARY KEY,
-    product_id  VARCHAR(50) NOT NULL,
-    product_name VARCHAR(50) NOT NULL,
-    quantity INTEGER NOT NULL
 );
 
 CREATE TABLE variations(
@@ -157,6 +151,18 @@ CREATE TABLE sa(
     percentage_quantity FLOAT NOT NULL DEFAULT 0,
     allocation_date DATE NOT NULL DEFAULT CURRENT_DATE(),
     inventory_status BIT NOT NULL DEFAULT 0,
+);
+
+CREATE TABLE suggested_order(
+    suggested_id INTEGER AUTO_INCREMENT PRIMARY KEY,
+    branch VARCHAR(50) NOT NULL,
+    product_id VARCHAR(50) NOT NULL,
+    available_inventory INTEGER NOT NULL,
+    sold_quantity INTEGER NOT NULL,
+    suggested_allocation_quantity INTEGER NOT NULL,
+    updated_allocation_quantity INTEGER NOT NULL DEFAULT 0,
+    percentage_quantity FLOAT NOT NULL DEFAULT 0,
+    allocation_date DATE NOT NULL DEFAULT CURRENT_DATE(),
 );
 
 CREATE TABLE distributions(

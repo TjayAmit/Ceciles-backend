@@ -71,9 +71,8 @@ const {
     }, 
     updatevariation: (req,res) => {
         const data =  req.body;
-        const id = req.params.id;   
-
-        update_variation(data,id, (err, results) => {
+        const id = req.params.id;
+        update_variation(data,id,(err, results) => {
             if(err){
                 return res.json({
                     success:-1,
@@ -91,6 +90,7 @@ const {
                 data: results
             });
         })
+        
     },
     deletevariation: (req,res) => {
         const id = req.params.id;

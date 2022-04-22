@@ -12,8 +12,8 @@ const router = require("express").Router();
 router.get('/all', readallvariation);
 router.get('/:id', readonevariation);
 router.post('/', createvariation);
-router.put('/:id', updatevariation);
-router.delete('/:id', deletevariation)
+router.put('/edit/:id', updatevariation);
+router.delete('/delete/:id', deletevariation)
 
 
 module.exports = router;

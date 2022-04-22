@@ -13,7 +13,7 @@ router.get('/all', readallmodifier);
 router.get('/:id', readonemodifier);
 router.post('/', createmodifier);
 router.put('/:id', updatemodifier);
-router.delete('/:id', deletemodifier)
+router.delete('/delete/:id', deletemodifier)
 
 
 module.exports = router;

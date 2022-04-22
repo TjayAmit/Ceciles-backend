@@ -7,15 +7,17 @@ const {
     editDistribution,
     deleteDistribution,
     searchproduct,
-    listdates,
     generateDistribution,
     getDistributionAlloDate,
+    getDistributionManufacturer,
+    getDistributionSelect,
  } = require("./Distribution.service");
 
 
 module.exports = {
     generateDistribution_controller:(req,res) => {
-        generateDistribution((err,results) =>{
+        const data = req.body;
+        generateDistribution(data,(err,results) =>{
             if(err){
                 res.json({
                     success:-1,
@@ -76,6 +78,48 @@ module.exports = {
         getDistributionAlloDate(data, (err, results) =>{
             if(err){
                 console.log(err);
+                return res.json({
+                    success:-1,
+                    message:err
+                });
+            }   
+            if(!results){
+                return res.json({
+                    success: 0,
+                    message: "User not Found"
+                });
+            }
+            return res.json({
+                success: 1,
+                data: results
+            });
+        })
+    },
+    getDistributionManufacturer_controller: (req, res) => {
+        const data = req.body
+        getDistributionManufacturer(data, (err, results) =>{
+            if(err){
+                return res.json({
+                    success:-1,
+                    message:err
+                });
+            }   
+            if(!results){
+                return res.json({
+                    success: 0,
+                    message: "User not Found"
+                });
+            }
+            return res.json({
+                success: 1,
+                data: results
+            });
+        })
+    },
+    getDistributionSelect_controller: (req, res) => {
+        getDistributionSelect((err, results) =>{
+            if(err){
+                console.log(err);
                 return;
             }   
             if(!results){
@@ -110,7 +154,8 @@ module.exports = {
         })
     },
     saveDistribution_controller : (req,res) => {
-            saveDistribution(async(err, results) =>{
+        const data = req.body;
+            saveDistribution(data,async(err, results) =>{
             if(err){
                 return res.json({
                     success:-1,
@@ -151,7 +196,7 @@ module.exports = {
         })
     },
     deleteDistribution_controller: (req, res) => {
-        const data = req.body
+        const data = req.params.id
         deleteDistribution(data, (err, results) =>{
             if(err){
                 return res.json({
@@ -190,23 +235,4 @@ module.exports = {
             });
         })
     },
-    listdates_controller:async (req, res) => {
-        listdates((err, results) =>{
-            if(err){
-                console.log(err);
-                return;
-            }   
-            if(!results){
-                return res.jason({
-                    success: 0,
-                    message: "Distribution not Found"
-                });
-            }
-            return res.json({
-                success: 1,
-                data: results
-            });
-        })
-    },
-   
 }

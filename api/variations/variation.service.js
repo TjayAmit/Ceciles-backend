@@ -26,9 +26,7 @@ module.exports = {
     },
     /* create */
     create_variation : (data,callBack) => {
-        if(data.value > 1){
-            data.value /= 100
-        }
+        data.value /= 100
         pool.query(`INSERT INTO variations(variation_label,variation_value) VALUES ("${data.label}",${data.value})`,
              (error, results) => {
                 if(error){ 
@@ -41,8 +39,9 @@ module.exports = {
     /* update */
     update_variation : (data,id,callBack) => {
         pool.query(`UPDATE variations SET variation_label="${data.label}", variation_value = ${data.value} WHERE variation_id = ${id}`,
-             (error, results, fields) => {
+             (error, results) => {
                 if(error){ 
+                    console.log(error)
                    return callBack(error);
                 }
                 return callBack(null, results);
