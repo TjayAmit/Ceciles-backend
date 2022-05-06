@@ -392,7 +392,7 @@ module.exports = {
                                  }
                                  datarecord2++;
                                  if(datarecord2 == datalength2){
-                                     pool.query(`SELECT product_id, sum(suggested_allocation_quantity) AS total_sa FROM suggested_order s GROUP BY product_id `, 
+                                     pool.query(`SELECT product_id, sum(suggested_allocation_quantity) AS total_sa FROM suggested_order GROUP BY product_id `, 
                                          (err, results) =>{
                                              if (err){ 
                                                  console.log(err)
@@ -422,7 +422,7 @@ module.exports = {
                         }
                         }
                     }else{
-                        pool.query(`SELECT product_id, sum(suggested_allocation_quantity) AS total_sa FROM suggested_order JOIN  GROUP BY product_id `, 
+                        pool.query(`SELECT product_id, sum(suggested_allocation_quantity) AS total_sa FROM suggested_order GROUP BY product_id `, 
                             (err, results) =>{
                                 if (err){ 
                                     console.log(err)

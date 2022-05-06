@@ -67,6 +67,7 @@ app.post('/branches', (req, res) =>{
       var deleteStatement = `DELETE FROM branches`;
       pool.query(deleteStatement, (err, results, fields) => {
         if (err) {
+            console.log(err)
             return res.status(500).json({err});
         }
       });
